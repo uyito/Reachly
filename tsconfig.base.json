@@ -1,0 +1,40 @@
+{
+  "compilerOptions": {
+    "rootDir": ".",
+    "sourceMap": true,
+    "declaration": false,
+    "moduleResolution": "node",
+    "emitDecoratorMetadata": true,
+    "strictPropertyInitialization": false,
+    "experimentalDecorators": true,
+    "noPropertyAccessFromIndexSignature": false,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "forceConsistentCasingInFileNames": true,
+    "importHelpers": true,
+    "target": "es2015",
+    "module": "esnext",
+    "lib": ["es2020", "dom"],
+    "skipLibCheck": true,
+    "skipDefaultLibCheck": true,
+    "baseUrl": ".",
+    "incremental": true,
+    "strictNullChecks": false,
+    "noImplicitAny": true,
+    "strictBindCallApply": false,
+    "noFallthroughCasesInSwitch": true,
+    "strict": true,
+    "paths": {
+      "@langchain/langgraph/prebuilt": ["node_modules/@langchain/langgraph/dist/prebuilt/index.d.ts"],
+      "@reachly/backend/*": ["apps/backend/src/*"],
+      "@reachly/frontend/*": ["apps/frontend/src/*"],
+      "@reachly/helpers/*": ["libraries/helpers/src/*"],
+      "@reachly/nestjs-libraries/*": ["libraries/nestjs-libraries/src/*"],
+      "@reachly/react/*": ["libraries/react-shared-libraries/src/*"],
+      "@reachly/plugins/*": ["libraries/plugins/src/*"],
+      "@reachly/orchestrator/*": ["apps/orchestrator/src/*"],
+      "@reachly/extension/*": ["apps/extension/src/*"]
+    }
+  },
+  "exclude": ["node_modules", "tmp"]
+}
