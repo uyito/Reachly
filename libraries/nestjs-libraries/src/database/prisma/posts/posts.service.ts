@@ -56,6 +56,7 @@ import { stripHtmlValidation } from '@reachly/helpers/utils/strip.html.validatio
 import { postContentPlainText } from '@reachly/helpers/utils/sanitize.post.content';
 import { CreatePublicCommentDto } from '@reachly/nestjs-libraries/dtos/comments/add.comment.dto';
 import { countLength } from '@reachly/helpers/utils/count.length';
+import { getContext } from '@reachly/nestjs-libraries/chat/async.storage';
 
 type PostWithConditionals = Post & {
   integration?: Integration;
@@ -963,6 +964,14 @@ export class PostsService {
     creationMethod: CreationMethod,
     keepGroup = false
   ): Promise<any[]> {
+    if (getContext()?.agentPublishing) {
+      for (const post of body.posts) {
+        await this._integrationService.assertAgentPublishingAccess(
+          orgId,
+          post.integration.id
+        );
+      }
+    }
     const postList = [];
     for (const post of body.posts) {
       if (
@@ -1051,6 +1060,13 @@ export class PostsService {
     const [root] = ordered;
     if (!root) {
       throw new NotFoundException('Post not found');
+    }
+
+    if (getContext()?.agentPublishing) {
+      await this._integrationService.assertAgentPublishingAccess(
+        orgId,
+        root.integrationId
+      );
     }
 
     if (root.parentPostId) {

@@ -10,6 +10,10 @@ import dayjs from 'dayjs';
 import { makeId } from '@reachly/nestjs-libraries/services/make.is';
 import { Organization, ShortLinkPreference, User } from '@prisma/client';
 import { AutopostService } from '@reachly/nestjs-libraries/database/prisma/autopost/autopost.service';
+import {
+  createAgentMcpToken,
+  hashAgentMcpToken,
+} from '@reachly/nestjs-libraries/chat/agent-publishing.policy';
 
 @Injectable()
 export class OrganizationService {
@@ -34,8 +38,18 @@ export class OrganizationService {
     return this._organizationRepository.getCount();
   }
 
-  async createMaxUser(id: string, name: string, saasName: string, email: string) {
-    return this._organizationRepository.createMaxUser(id, name, saasName, email);
+  async createMaxUser(
+    id: string,
+    name: string,
+    saasName: string,
+    email: string
+  ) {
+    return this._organizationRepository.createMaxUser(
+      id,
+      name,
+      saasName,
+      email
+    );
   }
 
   addUserToOrg(
@@ -61,6 +75,31 @@ export class OrganizationService {
 
   getOrgByApiKey(api: string) {
     return this._organizationRepository.getOrgByApiKey(api);
+  }
+
+  getOrgByAgentMcpToken(token: string) {
+    const hash = hashAgentMcpToken(token);
+    return hash
+      ? this._organizationRepository.getOrgByAgentMcpTokenHash(hash)
+      : null;
+  }
+
+  hasAgentMcpToken(orgId: string) {
+    return this._organizationRepository.hasAgentMcpToken(orgId);
+  }
+
+  async rotateAgentMcpToken(orgId: string) {
+    const token = createAgentMcpToken();
+    await this._organizationRepository.setAgentMcpTokenHash(
+      orgId,
+      hashAgentMcpToken(token)!
+    );
+    return { token };
+  }
+
+  async revokeAgentMcpToken(orgId: string) {
+    await this._organizationRepository.setAgentMcpTokenHash(orgId, null);
+    return { success: true };
   }
 
   async canUseSuperAdminApi(orgId: string) {
@@ -96,16 +135,18 @@ export class OrganizationService {
     return this._organizationRepository.getOrgByCustomerId(customerId);
   }
 
-  async inviteTeamMember(org: Organization, user: User, body: AddTeamMemberDto) {
+  async inviteTeamMember(
+    org: Organization,
+    user: User,
+    body: AddTeamMemberDto
+  ) {
     const timeLimit = dayjs().add(2, 'day').format('YYYY-MM-DD HH:mm:ss');
     const id = makeId(5);
     const url =
       process.env.FRONTEND_URL +
       `/?org=${AuthService.signJWT({ ...body, orgId: org.id, timeLimit, id })}`;
     if (body.sendEmail) {
-      const inviter = user.name
-        ? `${user.name} (${user.email})`
-        : user.email;
+      const inviter = user.name ? `${user.name} (${user.email})` : user.email;
       await this._notificationsService.sendEmail(
         body.email,
         `${user.name || user.email} invited you to join "${org.name}"`,

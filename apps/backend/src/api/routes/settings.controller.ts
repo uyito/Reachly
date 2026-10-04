@@ -3,27 +3,72 @@ import {
   Controller,
   Delete,
   Get,
+  Header,
   HttpException,
   Param,
   Post,
+  UseGuards,
 } from '@nestjs/common';
 import { GetOrgFromRequest } from '@reachly/nestjs-libraries/user/org.from.request';
 import { GetUserFromRequest } from '@reachly/nestjs-libraries/user/user.from.request';
 import { Organization, User } from '@prisma/client';
 import { CheckPolicies } from '@reachly/backend/services/auth/permissions/permissions.ability';
 import { OrganizationService } from '@reachly/nestjs-libraries/database/prisma/organizations/organization.service';
+import { IntegrationService } from '@reachly/nestjs-libraries/database/prisma/integrations/integration.service';
+import { WorkspaceAdminGuard } from '@reachly/backend/services/auth/workspace.admin.guard';
 import { AddTeamMemberDto } from '@reachly/nestjs-libraries/dtos/settings/add.team.member.dto';
 import { AdminAddTeamMemberDto } from '@reachly/nestjs-libraries/dtos/settings/admin.add.team.member.dto';
 import { ShortlinkPreferenceDto } from '@reachly/nestjs-libraries/dtos/settings/shortlink-preference.dto';
 import { ApiTags } from '@nestjs/swagger';
-import { AuthorizationActions, Sections } from '@reachly/backend/services/auth/permissions/permission.exception.class';
+import {
+  AuthorizationActions,
+  Sections,
+} from '@reachly/backend/services/auth/permissions/permission.exception.class';
 
 @ApiTags('Settings')
 @Controller('/settings')
 export class SettingsController {
   constructor(
-    private _organizationService: OrganizationService
+    private _organizationService: OrganizationService,
+    private _integrationService: IntegrationService
   ) {}
+
+  @Get('/agent-publishing')
+  @UseGuards(WorkspaceAdminGuard)
+  @Header('Cache-Control', 'no-store')
+  @CheckPolicies([AuthorizationActions.Create, Sections.ADMIN])
+  async getAgentPublishing(@GetOrgFromRequest() org: Organization) {
+    const [hasToken, integrations] = await Promise.all([
+      this._organizationService.hasAgentMcpToken(org.id),
+      this._integrationService.getIntegrationsList(org.id),
+    ]);
+    return {
+      hasToken,
+      accounts: integrations.map((p) => ({
+        id: p.id,
+        name: p.name,
+        platform: p.providerIdentifier,
+        picture: p.picture,
+        agentPublishingEnabled: p.agentPublishingEnabled,
+        available: !p.disabled && !p.refreshNeeded && !p.inBetweenSteps,
+      })),
+    };
+  }
+
+  @Post('/agent-publishing/token')
+  @UseGuards(WorkspaceAdminGuard)
+  @Header('Cache-Control', 'no-store')
+  @CheckPolicies([AuthorizationActions.Create, Sections.ADMIN])
+  rotateAgentToken(@GetOrgFromRequest() org: Organization) {
+    return this._organizationService.rotateAgentMcpToken(org.id);
+  }
+
+  @Delete('/agent-publishing/token')
+  @UseGuards(WorkspaceAdminGuard)
+  @CheckPolicies([AuthorizationActions.Create, Sections.ADMIN])
+  revokeAgentToken(@GetOrgFromRequest() org: Organization) {
+    return this._organizationService.revokeAgentMcpToken(org.id);
+  }
 
   @Get('/team')
   @CheckPolicies(

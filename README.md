@@ -2,6 +2,10 @@
 
 Reachly is a self-hosted social media scheduling platform based on [Postiz](https://github.com/gitroomhq/postiz-app).
 
+## Agent publishing
+
+Open **Settings → Agent publishing**, enable the social accounts an agent may use, and create a dedicated MCP credential. Agents connect to `<backend URL>/mcp/agent` to upload media, schedule posts, and publish immediately without a dashboard approval for each post. See [agent setup and deployment instructions](docs/agent-publishing.md).
+
 ## Development
 
 Use Node.js 22 (>=22.12, <23) and pnpm 10.6.1.

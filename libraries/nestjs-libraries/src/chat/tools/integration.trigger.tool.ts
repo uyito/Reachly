@@ -10,6 +10,7 @@ import { IntegrationService } from '@reachly/nestjs-libraries/database/prisma/in
 import { RefreshToken } from '@reachly/nestjs-libraries/integrations/social.abstract';
 import { timer } from '@reachly/helpers/utils/timer';
 import { checkAuth } from '@reachly/nestjs-libraries/chat/auth.context';
+import { getContext } from '@reachly/nestjs-libraries/chat/async.storage';
 import { RefreshIntegrationService } from '@reachly/nestjs-libraries/integrations/refresh.integration.service';
 
 @Injectable()
@@ -63,6 +64,13 @@ export class IntegrationTriggerTool implements AgentToolInterface {
           (context?.requestContext as any)?.get('organization') as string
         ).id;
 
+        if (getContext()?.agentPublishing) {
+          await this._integrationService.assertAgentPublishingAccess(
+            organizationId,
+            inputData.integrationId
+          );
+        }
+
         const getIntegration =
           await this._integrationService.getIntegrationById(
             organizationId,
@@ -106,7 +114,10 @@ export class IntegrationTriggerTool implements AgentToolInterface {
             const load = await integrationProvider[inputData.methodName](
               getIntegration.token,
               inputData.dataSchema.reduce(
-                (all: Record<string, string>, current: { key: string; value: string }) => ({
+                (
+                  all: Record<string, string>,
+                  current: { key: string; value: string }
+                ) => ({
                   ...all,
                   [current.key]: current.value,
                 }),

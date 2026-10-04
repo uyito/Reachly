@@ -8,6 +8,7 @@ import { makeId } from '@reachly/nestjs-libraries/services/make.is';
 import { AllProvidersSettings } from '@reachly/nestjs-libraries/dtos/posts/providers-settings/all.providers.settings';
 import { Integration } from '@prisma/client';
 import { checkAuth } from '@reachly/nestjs-libraries/chat/auth.context';
+import { getContext } from '@reachly/nestjs-libraries/chat/async.storage';
 import {
   ValidUrlExtension,
   ValidUrlPath,
@@ -60,6 +61,7 @@ A single LinkedIn post with one comment
 - postsAndComments array length will be one
 
 Do not use this to update or delete existing posts.
+On the Agent Publishing endpoint, integrationList only returns accounts the owner has enabled for autonomous publishing. No additional approval in Reachly is required for these accounts.
 On success, each item in output contains a previewUrl the user can open to see the post.
 If validation fails, the result contains output.errors describing what to fix; the call can be retried with corrected parameters.
 `,
@@ -75,7 +77,10 @@ If validation fails, the result contains output.errors describing what to fix; t
                 .describe(
                   "If the integration is X, return if it's premium or not"
                 ),
-              date: z.string().describe('The date of the post in UTC time'),
+              date: z
+                .string()
+                .datetime({ offset: true, local: true })
+                .describe('The date of the post in UTC time (ISO 8601)'),
               shortLink: z
                 .boolean()
                 .describe(
@@ -92,13 +97,14 @@ If validation fails, the result contains output.errors describing what to fix; t
                     content: z
                       .string()
                       .describe(
-                        "The content of the post, HTML, Each line must be wrapped in <p> here is the possible tags: h1, h2, h3, u, strong, li, ul, p (you can't have u and strong together), and img (<img src=\"...\">) only when the integration rules say pictures go inside the content"
+                        'The content of the post, HTML, Each line must be wrapped in <p> here is the possible tags: h1, h2, h3, u, strong, li, ul, p (you can\'t have u and strong together), and img (<img src="...">) only when the integration rules say pictures go inside the content'
                       ),
                     attachments: z
                       .array(attachmentUrl)
                       .describe('The image of the post (URLS)'),
                   })
                 )
+                .min(1)
                 .describe(
                   'first item is the post, every other item is the comments'
                 ),
@@ -120,6 +126,7 @@ If validation fails, the result contains output.errors describing what to fix; t
                 ),
             })
           )
+          .min(1)
           .describe('Individual post'),
       }),
       outputSchema: z.object({
@@ -143,6 +150,16 @@ If validation fails, the result contains output.errors describing what to fix; t
           (context?.requestContext as any)?.get('organization') as string
         ).id;
         const finalOutput = [];
+
+        // Authorize the entire batch before validation or the first side effect.
+        if (getContext()?.agentPublishing) {
+          for (const platform of inputData.socialPost) {
+            await this._integrationService.assertAgentPublishingAccess(
+              organizationId,
+              platform.integrationId
+            );
+          }
+        }
 
         const integrations = {} as Record<string, Integration>;
         for (const platform of inputData.socialPost) {
@@ -222,36 +239,43 @@ If validation fails, the result contains output.errors describing what to fix; t
             throw new Error('Integration not found');
           }
 
-          const output = await this._postsService.createPost(organizationId, {
-            date: post.date,
-            type: post.type as 'draft' | 'schedule' | 'now',
-            shortLink: post.shortLink,
-            tags: [],
-            posts: [
-              {
-                integration,
-                group: makeId(10),
-                settings: post.settings.reduce(
-                  (acc: AllProvidersSettings, s: { key: string; value: any }) => ({
-                    ...acc,
-                    [s.key]: s.value,
-                  }),
-                  {
-                    __type: integration.providerIdentifier,
-                  } as AllProvidersSettings
-                ),
-                value: post.postsAndComments.map((p: any) => ({
-                  content: p.content,
-                  id: makeId(10),
-                  delay: 0,
-                  image: p.attachments.map((p: any) => ({
+          const output = await this._postsService.createPost(
+            organizationId,
+            {
+              date: post.date,
+              type: post.type as 'draft' | 'schedule' | 'now',
+              shortLink: post.shortLink,
+              tags: [],
+              posts: [
+                {
+                  integration,
+                  group: makeId(10),
+                  settings: post.settings.reduce(
+                    (
+                      acc: AllProvidersSettings,
+                      s: { key: string; value: any }
+                    ) => ({
+                      ...acc,
+                      [s.key]: s.value,
+                    }),
+                    {
+                      __type: integration.providerIdentifier,
+                    } as AllProvidersSettings
+                  ),
+                  value: post.postsAndComments.map((p: any) => ({
+                    content: p.content,
                     id: makeId(10),
-                    path: p,
+                    delay: 0,
+                    image: p.attachments.map((p: any) => ({
+                      id: makeId(10),
+                      path: p,
+                    })),
                   })),
-                })),
-              },
-            ],
-          }, 'MCP');
+                },
+              ],
+            },
+            'MCP'
+          );
           // Same public preview page the calendar "Preview Post" button opens.
           finalOutput.push(
             ...output.map((p) => ({

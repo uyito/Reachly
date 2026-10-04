@@ -23,6 +23,7 @@ import { LogoutComponent } from '@reachly/frontend/components/layout/logout.comp
 import { useSearchParams } from 'next/navigation';
 import { useVariables } from '@reachly/react/helpers/variable.context';
 import { PublicComponent } from '@reachly/frontend/components/public-api/public.component';
+import { AgentPublishing } from '@reachly/frontend/components/public-api/agent-publishing.component';
 import Link from 'next/link';
 import { Webhooks } from '@reachly/frontend/components/webhooks/webhooks';
 import { Sets } from '@reachly/frontend/components/sets/sets';
@@ -86,7 +87,14 @@ export const SettingsPopup: FC<{
   const t = useT();
   const list = useMemo(() => {
     const arr = [];
-    arr.push({ tab: 'global_settings', label: t('global_settings', 'Global Settings') });
+    arr.push({
+      tab: 'global_settings',
+      label: t('global_settings', 'Global Settings'),
+    });
+    arr.push({
+      tab: 'agent_publishing',
+      label: t('agent_publishing', 'Agent publishing'),
+    });
     // Populate tabs based on user permissions
     if (user?.tier?.team_members && isGeneral) {
       arr.push({ tab: 'teams', label: t('teams', 'Teams') });
@@ -106,7 +114,10 @@ export const SettingsPopup: FC<{
     if (user?.tier?.public_api && isGeneral && showLogout) {
       arr.push({ tab: 'api', label: t('developers', 'Developers') });
     }
-    arr.push({ tab: 'approved_apps', label: t('approved_apps', 'Approved Apps') });
+    arr.push({
+      tab: 'approved_apps',
+      label: t('approved_apps', 'Approved Apps'),
+    });
 
     return arr;
   }, [user, isGeneral, showLogout, t]);
@@ -165,6 +176,7 @@ export const SettingsPopup: FC<{
                   <GlobalSettings />
                 </div>
               )}
+              {tab === 'agent_publishing' && <AgentPublishing />}
               {tab === 'teams' && !!user?.tier?.team_members && isGeneral && (
                 <div>
                   <TeamsComponent />

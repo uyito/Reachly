@@ -1,11 +1,10 @@
-import {
-  AgentToolInterface,
-} from '@reachly/nestjs-libraries/chat/agent.tool.interface';
+import { AgentToolInterface } from '@reachly/nestjs-libraries/chat/agent.tool.interface';
 import { createTool } from '@mastra/core/tools';
 import { Injectable } from '@nestjs/common';
 import { IntegrationService } from '@reachly/nestjs-libraries/database/prisma/integrations/integration.service';
 import z from 'zod';
 import { checkAuth } from '@reachly/nestjs-libraries/chat/auth.context';
+import { getContext } from '@reachly/nestjs-libraries/chat/async.storage';
 
 @Injectable()
 export class IntegrationListTool implements AgentToolInterface {
@@ -51,9 +50,15 @@ export class IntegrationListTool implements AgentToolInterface {
 
         return {
           output: (
-            await this._integrationService.getIntegrationsList(organizationId)
+            await (getContext()?.agentPublishing
+              ? this._integrationService.getAgentPublishingIntegrations(
+                  organizationId
+                )
+              : this._integrationService.getIntegrationsList(organizationId))
           )
-            .filter((p) => !inputData.group || p.customer?.id === inputData.group)
+            .filter(
+              (p) => !inputData.group || p.customer?.id === inputData.group
+            )
             .map((p) => ({
               name: p.name,
               id: p.id,

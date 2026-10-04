@@ -22,6 +22,9 @@ const nextConfig = {
   },
   reactStrictMode: false,
   transpilePackages: ['crypto-hash'],
+  // jsdom reads stylesheets relative to its installed package directory.
+  // Keep the server sanitizer native so bundling cannot relocate those paths.
+  serverExternalPackages: ['isomorphic-dompurify'],
   // Enable production sourcemaps for Sentry
   productionBrowserSourceMaps: true,
 

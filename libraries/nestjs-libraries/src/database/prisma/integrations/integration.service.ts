@@ -4,8 +4,11 @@ import {
   HttpStatus,
   Inject,
   Injectable,
+  ForbiddenException,
+  NotFoundException,
 } from '@nestjs/common';
 import { IntegrationRepository } from '@reachly/nestjs-libraries/database/prisma/integrations/integration.repository';
+import { canAgentPublish } from '@reachly/nestjs-libraries/chat/agent-publishing.policy';
 import { IntegrationManager } from '@reachly/nestjs-libraries/integrations/integration.manager';
 import {
   AnalyticsData,
@@ -154,6 +157,35 @@ export class IntegrationService {
     return this._integrationRepository.getIntegrationsList(org);
   }
 
+  async getAgentPublishingIntegrations(org: string) {
+    return (await this.getIntegrationsList(org)).filter(canAgentPublish);
+  }
+
+  async assertAgentPublishingAccess(org: string, id: string) {
+    const channel = await this.getIntegrationById(org, id);
+    if (
+      !channel ||
+      channel.organizationId !== org ||
+      !canAgentPublish(channel)
+    ) {
+      throw new ForbiddenException(
+        'Agent publishing is not enabled for this account, or the account needs to be reconnected.'
+      );
+    }
+    return channel;
+  }
+
+  async setAgentPublishingEnabled(org: string, id: string, enabled: boolean) {
+    const { count } =
+      await this._integrationRepository.setAgentPublishingEnabled(
+        org,
+        id,
+        enabled
+      );
+    if (!count) throw new NotFoundException('Account not found');
+    return { id, agentPublishingEnabled: enabled };
+  }
+
   getChannelHealth(org: string, includeDeleted = false) {
     return this._integrationRepository.getChannelHealth(org, includeDeleted);
   }
@@ -206,10 +238,11 @@ export class IntegrationService {
     newProvider: string,
     auth: { id: string; username: string }
   ) {
-    const existing = await this._integrationRepository.getIntegrationByInternalId(
-      org,
-      oldInternalId
-    );
+    const existing =
+      await this._integrationRepository.getIntegrationByInternalId(
+        org,
+        oldInternalId
+      );
 
     if (
       !existing ||

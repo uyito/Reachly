@@ -448,6 +448,13 @@ export class IntegrationRepository {
     });
   }
 
+  setAgentPublishingEnabled(org: string, id: string, enabled: boolean) {
+    return this._integration.model.integration.updateMany({
+      where: { id, organizationId: org, deletedAt: null },
+      data: { agentPublishingEnabled: enabled },
+    });
+  }
+
   async getIntegrationForOrder(
     id: string,
     order: string,

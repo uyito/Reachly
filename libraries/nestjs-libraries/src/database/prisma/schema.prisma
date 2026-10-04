@@ -13,6 +13,7 @@ model Organization {
   name                String
   description         String?
   apiKey              String?
+  agentMcpTokenHash    String?              @unique
   paymentId           String?
   streakSince         DateTime?
   createdAt           DateTime             @default(now())
@@ -374,6 +375,7 @@ model Integration {
   type                  String
   token                 String
   disabled              Boolean                @default(false)
+  agentPublishingEnabled Boolean               @default(false)
   tokenExpiration       DateTime?
   refreshToken          String?
   profile               String?

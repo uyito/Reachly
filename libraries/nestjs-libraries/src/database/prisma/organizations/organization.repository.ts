@@ -71,6 +71,31 @@ export class OrganizationRepository {
     });
   }
 
+  getOrgByAgentMcpTokenHash(agentMcpTokenHash: string) {
+    return this._organization.model.organization.findFirst({
+      where: { agentMcpTokenHash, deletedAt: null },
+      // Tools only need the workspace id; do not propagate general API keys
+      // or credential hashes into MCP execution contexts.
+      select: { id: true },
+    });
+  }
+
+  async hasAgentMcpToken(orgId: string) {
+    const org = await this._organization.model.organization.findFirst({
+      where: { id: orgId, deletedAt: null },
+      select: { agentMcpTokenHash: true },
+    });
+    return !!org?.agentMcpTokenHash;
+  }
+
+  async setAgentMcpTokenHash(orgId: string, agentMcpTokenHash: string | null) {
+    await this._organization.model.organization.update({
+      where: { id: orgId, deletedAt: null },
+      data: { agentMcpTokenHash },
+      select: { id: true },
+    });
+  }
+
   getCount() {
     return this._organization.model.organization.count();
   }

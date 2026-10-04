@@ -5,6 +5,8 @@ import type { SelfHostedInstance } from '@reachly/nestjs-libraries/chat/mcp.rela
 type Ctx = {
   requestId: string;
   auth: any; // replace with your org type if you have it, e.g. Organization
+  // Only the dedicated, account-scoped agent endpoint sets this flag.
+  agentPublishing?: boolean;
   // a self-hosted connection: where its tool calls are relayed to
   relay?: SelfHostedInstance & { id: string };
 };

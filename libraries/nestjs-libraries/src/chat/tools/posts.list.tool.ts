@@ -4,6 +4,8 @@ import { z } from 'zod';
 import { Injectable } from '@nestjs/common';
 import { PostsService } from '@reachly/nestjs-libraries/database/prisma/posts/posts.service';
 import { checkAuth } from '@reachly/nestjs-libraries/chat/auth.context';
+import { getContext } from '@reachly/nestjs-libraries/chat/async.storage';
+import { IntegrationService } from '@reachly/nestjs-libraries/database/prisma/integrations/integration.service';
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
 
@@ -19,7 +21,10 @@ const parseSettings = (settings: string | null) => {
 
 @Injectable()
 export class PostsListTool implements AgentToolInterface {
-  constructor(private _postsService: PostsService) {}
+  constructor(
+    private _postsService: PostsService,
+    private _integrationService: IntegrationService
+  ) {}
   name = 'postsListTool';
 
   run() {
@@ -44,7 +49,9 @@ Posts cannot be deleted through the Reachly tools - if the user wants to delete 
       inputSchema: z.object({
         startDate: z
           .string()
-          .describe('Start of the window (UTC), for example 2026-07-20T00:00:00'),
+          .describe(
+            'Start of the window (UTC), for example 2026-07-20T00:00:00'
+          ),
         endDate: z
           .string()
           .describe('End of the window (UTC), for example 2026-08-20T00:00:00'),
@@ -57,15 +64,11 @@ Posts cannot be deleted through the Reachly tools - if the user wants to delete 
         output: z.object({
           posts: z.array(
             z.object({
-              id: z
-                .string()
-                .describe('The post id'),
+              id: z.string().describe('The post id'),
               publishDate: z.string().describe('UTC time'),
               state: z.string().describe('QUEUE, DRAFT, PUBLISHED or ERROR'),
               content: z.string(),
-              settings: z
-                .any()
-                .describe('The post current provider settings'),
+              settings: z.any().describe('The post current provider settings'),
               group: z.string(),
               integrationId: z.string(),
               platform: z.string(),
@@ -86,21 +89,35 @@ Posts cannot be deleted through the Reachly tools - if the user wants to delete 
           customer: inputData.customer,
         } as any);
 
+        const allowedIds = getContext()?.agentPublishing
+          ? new Set(
+              (
+                await this._integrationService.getAgentPublishingIntegrations(
+                  organizationId
+                )
+              ).map((p) => p.id)
+            )
+          : null;
+
         return {
           output: {
-            posts: (posts || []).map((p: any) => ({
-              id: p.id,
-              publishDate: dayjs(p.publishDate)
-                .utc()
-                .format('YYYY-MM-DDTHH:mm:ss'),
-              state: p.state,
-              content: p.content || '',
-              settings: parseSettings(p.settings),
-              group: p.group,
-              integrationId: p.integration?.id,
-              platform: p.integration?.providerIdentifier,
-              integrationName: p.integration?.name,
-            })),
+            posts: (posts || [])
+              .filter(
+                (p: any) => !allowedIds || allowedIds.has(p.integration?.id)
+              )
+              .map((p: any) => ({
+                id: p.id,
+                publishDate: dayjs(p.publishDate)
+                  .utc()
+                  .format('YYYY-MM-DDTHH:mm:ss'),
+                state: p.state,
+                content: p.content || '',
+                settings: parseSettings(p.settings),
+                group: p.group,
+                integrationId: p.integration?.id,
+                platform: p.integration?.providerIdentifier,
+                integrationName: p.integration?.name,
+              })),
           },
         };
       },

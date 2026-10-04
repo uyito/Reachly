@@ -9,6 +9,7 @@ import {
   selfHostedRelayEnabled,
 } from '@reachly/nestjs-libraries/database/prisma/oauth/oauth.service';
 import { runWithContext } from './async.storage';
+import { startAgentMcp } from './start.agent-mcp';
 import { createOAuthMiddleware } from './oauth-middleware';
 import { UPLOAD_WIDGET_URI, uploadWidgetHtml } from '@reachly/nestjs-libraries/chat/ui/upload.widget';
 import { CLIPPING_WIDGET_URI, clippingWidgetHtml } from '@reachly/nestjs-libraries/chat/ui/clipping.widget';
@@ -61,6 +62,9 @@ export const startMcp = async (app: INestApplication) => {
     // tools that only make sense inside an MCP host (ui:// widgets)
     ...(await loadToolsService.loadTools(true)),
   };
+
+  // Register before /mcp/:id so 'agent' cannot be mistaken for a legacy API key.
+  startAgentMcp(app, agentTools);
 
   // The Claude connector directory does not accept AI media generation tools,
   // so the directory-facing endpoint hides them. Direct connections

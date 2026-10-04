@@ -7,6 +7,7 @@ import {
   Post,
   Put,
   Query,
+  UseGuards,
 } from '@nestjs/common';
 import { ioRedis } from '@reachly/nestjs-libraries/redis/redis.service';
 import { IntegrationManager } from '@reachly/nestjs-libraries/integrations/integration.manager';
@@ -20,6 +21,8 @@ import { ApiTags } from '@nestjs/swagger';
 import { GetUserFromRequest } from '@reachly/nestjs-libraries/user/user.from.request';
 import { PostsService } from '@reachly/nestjs-libraries/database/prisma/posts/posts.service';
 import { IntegrationTimeDto } from '@reachly/nestjs-libraries/dtos/integrations/integration.time.dto';
+import { AgentPublishingDto } from '@reachly/nestjs-libraries/dtos/integrations/agent-publishing.dto';
+import { WorkspaceAdminGuard } from '@reachly/backend/services/auth/workspace.admin.guard';
 import { CustomerNameDto } from '@reachly/nestjs-libraries/dtos/integrations/customer.name.dto';
 import { PlugDto } from '@reachly/nestjs-libraries/dtos/plugs/plug.dto';
 import {
@@ -46,6 +49,21 @@ export class IntegrationsController {
     private _postService: PostsService,
     private _refreshIntegrationService: RefreshIntegrationService
   ) {}
+
+  @Put('/:id/agent-publishing')
+  @UseGuards(WorkspaceAdminGuard)
+  @CheckPolicies([AuthorizationActions.Create, Sections.ADMIN])
+  setAgentPublishing(
+    @GetOrgFromRequest() org: Organization,
+    @Param('id') id: string,
+    @Body() body: AgentPublishingDto
+  ) {
+    return this._integrationService.setAgentPublishingEnabled(
+      org.id,
+      id,
+      body.enabled
+    );
+  }
 
   @Post('/provider/:id/connect')
   @CheckPolicies([AuthorizationActions.Create, Sections.CHANNEL])
